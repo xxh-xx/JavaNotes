@@ -1,4 +1,4 @@
 # JavaNotes
 
 - 码云：
-- GitHub：
+- GitHub：https://xxh-xx.github.io/JavaNotes
