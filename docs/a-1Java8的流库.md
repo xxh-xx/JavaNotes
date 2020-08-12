@@ -405,3 +405,210 @@ public static void main(String[] args) throws IOException {
 ```
 
 # 8、收集结果
+
+```java
+public static Stream<String> noVowels() throws IOException {
+    String contents = new String(Files.readAllBytes(Paths.get("D:/Backup/桌面/ciyu.txt")), StandardCharsets.UTF_8);
+    List<String> wordList = Arrays.asList(contents.split("、"));
+    Stream<String> words = wordList.stream();
+    return words.map(s -> s.replaceAll("天","地"));
+}
+
+public static <T> void show(String label, Set<T> set){
+    System.out.println(label+": "+set.getClass().getName());
+    /**
+     * <R,A> R collect(Collector<? super T,A,R> collector)
+     * 使用给定的收集器来收集当前流中的元素。Collector类有用于多种收集器的工厂方法。
+     * public static Collector<CharSequence,?,String> joining()
+     * public static Collector<CharSequence,?,String> joining(CharSequence delimiter)
+     * public static Collector<CharSequence,?,String> joining(CharSequence delimiter, CharSequence prefix, CharSequence suffix)
+     * 产生一个连接字符串的收集器。分隔符会置于字符串之间，而第一个字符串之前可以有前缀，最后一个字符串之后可以有后缀。如果没有指定，那么它们都为空。
+     */
+    System.out.println("["+set.stream().limit(10).map(Objects::toString).collect(Collectors.joining(","))+"]");
+}
+
+public static void main(String[] args) throws IOException {
+
+    /**
+     * Iterator<T> iterator()
+     * 产生一个用于获取当前流中各个元素的迭代器。这是一种终结操作。
+     */
+    Iterator<Integer> iterator = Stream.iterate(0,n->n+1).limit(10).iterator();
+    while (iterator.hasNext()){
+        System.out.println(iterator.next());
+    }
+
+    /**
+     * Object[] toArray()
+     * <A> A[] toArray(IntFunction<A[]> generator)
+     * 产生一个对象数组，或者在将引用A[]::new传递给构造器时，返回一个A类型的数组这些操作都是终结操作。
+     */
+    Object[] numbers = Stream.iterate(0,n->n+1).limit(10).toArray();
+    System.out.println("Object array:"+Arrays.toString(numbers));
+
+
+    int number = (int) numbers[0];
+    System.out.println("number:"+number);
+
+    //System.out.println("以下语句引发异常:");
+    //Integer[] number2 = (Integer[]) numbers;//ClassCastException: [Ljava.lang.Object; cannot be cast to [Ljava.lang.Integer;
+
+    Integer[] number3 = Stream.iterate(0,n->n+1).limit(10).toArray(Integer[]::new);
+    System.out.println("Integer array:"+Arrays.toString(number3));
+
+    /**
+     * public static <T> Collector<T,?,List<T>> toList()
+     * public static <T> Collector<T,?,List<T>> toUnmodifiableList()
+     * public static <T> Collector<T,?,Set<T>> toSet()
+     * public static <T> Collector<T,?,Set<T>> toUnmodifiableSet()
+     * 产生一个将元素收集到列表或集合中的收集器
+     */
+    Set<String> noVowelSet = noVowels().collect(Collectors.toSet());
+    show("noVowelSet",noVowelSet);
+
+    /**
+     * public static <T,C extends Collection<T>> Collector<T,?,C> toCollection(Supplier<C> collectionFactory)
+     * 产生一个将元素收集到任意集合中的收集器。可以传递一个诸如TreeSet::new的构造器引用。
+     */
+    TreeSet<String> noVowelTreeSet = noVowels().collect(Collectors.toCollection(TreeSet::new));
+    show("noVowelTreeSet",noVowelTreeSet);
+
+    String result = noVowels().limit(10).collect(Collectors.joining());
+    System.out.println("Joining: "+result);
+    result = noVowels().limit(10).collect(Collectors.joining(","));
+    System.out.println("Joining with commas: "+result);
+
+    /**
+     * public static <T> Collector<T,?,IntSummaryStatistics> summarizingInt(ToIntFunction<? super T> mapper)
+     * public static <T> Collector<T,?,LongSummaryStatistics> summarizingLong(ToLongFunction<? super T> mapper)
+     * public static <T> Collector<T,?,DoubleSummaryStatistics> summarizingDouble(ToDoubleFunction<? super T> mapper)
+     * 产生能够生成（Int|Long|Double）SummaryStatistics对象的收集器，通过它们可以获得将mapper应用于每个元素后所产生的结果的数量、总和、平均值、最大值和最小值。
+     */
+    IntSummaryStatistics summary = noVowels().collect(Collectors.summarizingInt(String::length));
+    /**
+     * public final long getCount()
+     * 产生汇总后的元素的个数
+     * public final （int|long|double） getSum()
+     * public final double getAverage()
+     * 产生汇总后的元素的总和或平均值，或者在没有任何元素时返回0
+     * public final (int|long|double) getMax()
+     * public final (int|long|double) getMin()
+     * 产生汇总后的元素的最大值和最小值，或者在没有任何元素时，产生（Integer|Long|Double）.(Max|Min)_VALUE.
+     */
+    double averageWorldLength = summary.getAverage();
+    double maxWorldLength = summary.getMax();
+    System.out.println("Average World Length: "+averageWorldLength);
+    System.out.println("Max World Length: "+maxWorldLength);
+    System.out.println("forEach:");
+    noVowels().limit(10).forEach(System.out::println);
+
+}
+```
+
+# 9、收集到映射表中
+
+```java
+public static class Person{
+    private int id;
+    private String name;
+    public Person(int id,String name){
+        this.id = id;
+        this.name = name;
+    }
+
+    public int getId() {
+        return id;
+    }
+
+    public void setId(int id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    @Override
+    public String toString() {
+        return "Person{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                '}';
+    }
+}
+
+public static Stream<Person> people(){
+    return Stream.of(new Person(1,"xxx"),new Person(2,"ccc"),new Person(3,"zzz"));
+}
+
+public static void main(String[] args) throws Exception{
+
+    /**
+     * public static <T,K,U> Collector<T,?,Map<K,U>> toMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper)
+     * public static <T,K,U> Collector<T,?,Map<K,U>> toMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper, BinaryOperator<U> mergeFunction)
+     * public static <T,K,U,M extends Map<K,U>> Collector<T,?,M> toMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper, BinaryOperator<U> mergeFunction, Supplier<M> mapFactory)
+     * public static <T,K,U> Collector<T,?,Map<K,U>> toUnmodifiableMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper)
+     * public static <T,K,U> Collector<T,?,Map<K,U>> toUnmodifiableMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper, BinaryOperator<U> mergeFunction)
+     * public static <T,K,U> Collector<T,?,ConcurrentMap<K,U>> toConcurrentMap(Function<? super T,? extends K> keyMapper, Function<? super T,? extends U> valueMapper)
+     * 产生一个收集器。它会产生一个映射表、不可修改的映射表或并发映射表。keyMapper和valueMapper函数会应用于每个收集到元素上，从而在所产生的映射表中生成一个键/值项。默认情况下，当两个元素产生相同的键时，会抛出一个IllegalStateException异常。你可以提供一个mergeFunction
+     * 来合并具有相同键的值。默认情况下。其结果是一个HashMap或ConcurrentHashMap。你可以提供一个mapSupplier，它会产生所期望的映射表实例。
+     */
+    Map<Integer,String> idToName = people().collect(Collectors.toMap(Person::getId,Person::getName));
+    System.out.println("idToName:"+idToName);
+
+    Map<Integer,Person> idToPerson = people().collect(Collectors.toMap(Person::getId, Function.identity()));
+    System.out.println("idToPerson:"+idToPerson.getClass().getName()+idToPerson);
+
+    idToPerson = people().collect(Collectors.toMap(Person::getId,Function.identity(),(existingValue,newValue)->{throw new IllegalStateException();}, TreeMap::new));
+    System.out.println("idToPerson:"+idToPerson.getClass().getName()+idToPerson);
+
+    Stream<Locale> locales = Stream.of(Locale.getAvailableLocales());
+    Map<String,String> languageNames = locales.collect(Collectors.toMap(Locale::getDisplayLanguage,l->l.getDisplayLanguage(l),(existingValue,newValue)->existingValue));
+    System.out.println("languageNames:"+languageNames);
+
+    locales = Stream.of(Locale.getAvailableLocales());
+    Map<String, Set<String>> countryLanguageSets = locales.collect(Collectors.toMap(Locale::getDisplayCountry,l->new HashSet<>(Arrays.asList(l.getDisplayLanguage())),(a,b)->{
+        Set<String> union = new HashSet<>(a);
+        union.addAll(b);
+        return union;
+    }));
+    System.out.println("countryLanguageSets:"+countryLanguageSets);
+
+}
+```
+
+# 10、群组和分区
+
+```java
+public static void main(String[] args) {
+        Stream<Locale> locales = Stream.of(Locale.getAvailableLocales());
+        /**
+         * public static <T,K> Collector<T,?,Map<K,List<T>>> groupingBy(Function<? super T,? extends K> classifier)
+         * public static <T,K> Collector<T,?,ConcurrentMap<K,List<T>>> groupingByConcurrent(Function<? super T,? extends K> classifier)
+         * 产生一个收集器，它会产生一个映射表或并发映射表，其键是将classifier应用于所有收集到的元素上所产生的结果，而值是由具有相同键的元素构成的一个个列表。
+         */
+//        Map<String, List<Locale>> countryToLocales = locales.collect(Collectors.groupingBy(Locale::getCountry));
+//        List<Locale> swissLocales = countryToLocales.get("CH");
+//        System.out.println(swissLocales);
+
+        /**
+         * public static <T> Collector<T,?,Map<Boolean,List<T>>> partitioningBy(Predicate<? super T> predicate)
+         * 产生一个收集器，它会产生一个映射表，其键是true/false，而值是由满足/不满足断言的元素构成的列表。
+         */
+        Map<Boolean,List<Locale>> englishAndOtherLocales = locales.collect(Collectors.partitioningBy(l->l.getLanguage().equals("en")));
+        List<Locale> englishLocales = englishAndOtherLocales.get(true);
+        System.out.println(englishLocales);
+
+    }
+```
+
+------
+
+**注释：**如果调用groupingByConcurrent方法，就会在使用并行流时获得一个被并行组装的并行映射表。这与toConcurrentMap方法完全类似。
+
+------
+
