@@ -612,3 +612,326 @@ public static void main(String[] args) {
 
 ------
 
+# 11、下游收集器
+
+```java
+public static class City{
+        private String name;
+        private String country;
+        private int population;
+        public City(String name,String country,int population){
+            this.name = name;
+            this.country = country;
+            this.population = population;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public int getPopulation() {
+            return population;
+        }
+
+        public void setPopulation(int population) {
+            this.population = population;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public void setCountry(String country) {
+            this.country = country;
+        }
+    }
+
+    public static Stream<City> readCities(String filename) throws IOException {
+        return Files.lines(Paths.get(filename)).map(l->l.split(",")).map(a->new City(a[0],a[1],Integer.parseInt(a[2])));
+    }
+
+    public static void main(String[] args) throws IOException {
+
+        Stream<Locale> locales = Stream.of(Locale.getAvailableLocales());
+        /**
+         * public static <T, K, A, D>
+         *     Collector<T, ?, Map<K, D>> groupingBy(Function<? super T, ? extends K> classifier,
+         *                                           Collector<? super T, A, D> downstream)
+         * 产生一个收集器，该收集器会产生一个映射表，其中的键是将classifier应用到所有收集到的元素上之后产生的结果，而值是使用下游收集器收集具有相同的键的元素所产生的结果。
+         */
+        Map<String, Set<Locale>> countryToLocaleSet = locales.collect(Collectors.groupingBy(Locale::getCountry,Collectors.toSet()));
+        System.out.println("countryToLocaleSet:"+countryToLocaleSet);
+
+        /**
+         * public static <T> Collector<T, ?, Long> counting()
+         * 产生一个可以对收集到元素进行计数的收集器。
+         */
+        locales = Stream.of(Locale.getAvailableLocales());
+        Map<String,Long> countryToLocaleCounts = locales.collect(Collectors.groupingBy(Locale::getCountry,Collectors.counting()));
+        System.out.println("countryToLocaleCounts:"+countryToLocaleCounts);
+
+        /**
+         * public static <T> Collector<T, ?, Integer> summingInt(ToIntFunction<? super T> mapper)
+         * public static <T> Collector<T, ?, Long> summingLong(ToLongFunction<? super T> mapper)
+         * public static <T> Collector<T, ?, Double> summingDouble(ToDoubleFunction<? super T> mapper)
+         * 产生一个收集器，对将mapper应用到收集到的元素上之后产生的结果计算总和。
+         */
+        Stream<City> cities = readCities("D:/Backup/桌面/cities.txt");
+        Map<String,Integer> stateToCityPopulation = cities.collect(Collectors.groupingBy(City::getCountry,Collectors.summingInt(City::getPopulation)));
+        System.out.println("stateToCityPopulation:"+stateToCityPopulation);
+
+        /**
+         * public static <T> Collector<T, ?, Optional<T>> maxBy(Comparator<? super T> comparator)
+         * public static <T> Collector<T, ?, Optional<T>> minBy(Comparator<? super T> comparator)
+         * 产生一个收集器，使用comparator指定的排序方法，计算收集到的元素中最大值和最小值。
+         * public static <T, U, A, R> Collector<T, ?, R> mapping(Function<? super T, ? extends U> mapper,Collector<? super U, A, R> downstream)
+         * 产生一个收集器，它会在每个元素上调用mapper，并将结果发送到下游收集器中。
+         */
+        cities = readCities("D:/Backup/桌面/cities.txt");
+        Map<String, Optional<String>> stateToLongestCityName = cities.collect(Collectors.groupingBy(City::getCountry,Collectors.mapping(City::getName,Collectors.maxBy(Comparator.comparing(String::length)))));
+        System.out.println("stateToLongestCityName:"+stateToLongestCityName);
+
+        locales = Stream.of(Locale.getAvailableLocales());
+        Map<String,Set<String>> countryToLanguages = locales.collect(Collectors.groupingBy(Locale::getDisplayCountry,Collectors.mapping(Locale::getDisplayLanguage,Collectors.toSet())));
+        System.out.println("countryToLanguages:"+countryToLanguages);
+
+        /**
+         * public static <T> Collector<T, ?, IntSummaryStatistics> summarizingInt(ToIntFunction<? super T> mapper)
+         * 返回一个Collector施加一个int制造用映射函数到每个输入元件，以及用于将得到的值返回汇总统计。
+         */
+        cities = readCities("D:/Backup/桌面/cities.txt");
+        Map<String, IntSummaryStatistics> stateToCityPopulationSummary = cities.collect(Collectors.groupingBy(City::getCountry,Collectors.summarizingInt(City::getPopulation)));
+        System.out.println(stateToCityPopulationSummary.get("中国"));
+
+        /**
+         * public static <T, U> Collector<T, ?, U> reducing(U identity,Function<? super T, ? extends U> mapper,BinaryOperator<U> op)
+         * 返回一个Collector ，其执行下一个指定的映射函数和减少其输入元件BinaryOperator 。 这是的一般化reducing(Object, BinaryOperator)其允许减少前的元素的转变
+         * 有三个版本的reducing方法，它们都应用于通用的约简操作。
+         */
+//        cities = readCities("D:/Backup/桌面/cities.txt");
+//        Map<String,String> stateToCityNames = cities.collect(Collectors.groupingBy(City::getCountry,Collectors.reducing("",City::getName,(s,t)->s.length()==0?t:s+","+t)));
+
+        cities = readCities("D:/Backup/桌面/cities.txt");
+        Map<String,String> stateToCityNames = cities.collect(Collectors.groupingBy(City::getCountry,Collectors.mapping(City::getName,Collectors.joining(","))));
+        System.out.println("stateToCityNames:"+stateToCityNames);
+
+
+    }
+```
+
+```java
+public static<T,A,R,RR> Collector<T,A,RR> collectingAndThen(Collector<T,A,R> downstream,Function<R,RR> finisher)
+//产生一个收集器，它会将元素发送到下游收集器中，然后将finisher函数应用到其结果上。
+```
+
+```java
+public static <T,U,A,R> Collector<T,?,R> flatMapping(Function<? super T,? extends Stream<? extends U>> mapper, Collector<? super U,A,R> downstream)
+//产生一个收集器，它会在每个元素上调用mapper，并将结果中的元素发送到下游收集器中。
+//从以下版本开始：9
+```
+
+```Java
+public static <T,A,R> Collector<T,?,R> filtering(Predicate<? super T> predicate, Collector<? super T,A,R> downstream)
+//产生一个收集器，它会将满足谓词逻辑的元素发送到下游收集器中。
+//从以下版本开始：9
+```
+
+# 12、约简操作
+
+```java
+Optional<T> reduce(BinaryOperator<T> accumulator)
+T reduce(T identity, BinaryOperator<T> accumulator)
+<U> U reduce(U identity, BiFunction<U,? super T,U> accumulator, BinaryOperator<U> combiner)
+//用给定的accumulator函数产生流中元素的累积总和。如果提供了幺元(一般指单位元),那么第一个被累积的元素就是该幺元。如果提供了组合器，那么它可以用来将分别累积的各个部分整合成总和。
+```
+
+```java
+<R> R collect(Supplier<R> supplier, BiConsumer<R,? super T> accumulator, BiConsumer<R,R> combiner)
+//将元素收集到类型R的结果中。在每个部分上，都会调用supplier来提供初始结果，调用accumulator来交替地将元素添加到结果中，并调用combiner来整合两个结果。
+```
+
+# 13、基本类型流
+
+通常，基本类型流上的方法与对象流上的方法类似。下面是主要的差异：
+
+- toArray方法会返回基本类型数组。
+- 产生可选结果的方法会返回一个OptionalInt、OptionalLong、OptionalDouble。这些类于Optional类类似，但是具有getAsInt、getAsLong和getAsDouble方法，而不是get方法。
+- 具有分别返回总和、平均最大值和最小值的sum、average、max和min方法。对象流没有定义这些方法。
+- summaryStatistics方法会产生一个类型为IntSummaryStatistics、LongSummaryStatistics或DoubleSummaryStatistics的对象，它们可以同时报告流的总和、数量、平均值、最大值和最小值。
+
+------
+
+**注释：**Random类具有ints、longs和doubles方法，它们会返回由随机数构成的基本类型流。如果需要的是并行流中的随机数。那么需要使用SplittableRandom类。
+
+------
+
+```java
+public static void show(String title, IntStream stream){
+    final int SIZE = 10;
+    int[] firstElements = stream.limit(SIZE+1).toArray();
+    System.out.print(title+": ");
+    for (int i = 0;i< firstElements.length;i++){
+        if (i>0){
+            System.out.print(",");
+        }
+        if (i<SIZE){
+            System.out.print(firstElements[i]);
+        }else {
+            System.out.print("...");
+        }
+    }
+    System.out.println();
+}
+
+public static void main(String[] args) throws IOException {
+
+    IntStream is1 = IntStream.generate(()-> (int) (Math.random()*100));
+    show("is1",is1);
+
+    /**
+     * public static IntStream range(int startInclusive, int endExclusive)
+     * public static IntStream rangeClosed(int startInclusive, int endInclusive)
+     * 产生一个由给定范围内的整数构成的IntStream。
+     * range:不包含10
+     * rangeClosed:包含10
+     */
+    IntStream is2 = IntStream.range(5,10);
+    show("is2",is2);
+
+    IntStream is3 = IntStream.rangeClosed(5,10);
+    show("is3",is3);
+
+    Path path = Paths.get("D:/Backup/桌面/cities.txt");
+    String contents = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+
+    /**
+     * IntStream mapToInt(ToIntFunction<? super T> mapper)
+     * LongStream mapToLong(ToLongFunction<? super T> mapper)
+     * DoubleStream mapToDouble(ToDoubleFunction<? super T> mapper)
+     * 将其转换为基本类型流
+     */
+    Stream<String> words = Stream.of(contents.split(","));
+    IntStream is4 = words.mapToInt(String::length);
+    show("is4",is4);
+
+    String sentence = "\uD835\uDD46 is the set of octonions.";
+    System.out.println(sentence);
+
+    /**
+     * public default IntStream codePoints()
+     * 产生由当前字符串的所有Unicode码点构成的流。
+     */
+    IntStream codes = sentence.codePoints();
+    System.out.println(codes.mapToObj(c->String.format("%X",c)).collect(Collectors.joining()));
+
+    /**
+     * Stream<Integer> boxed()
+     * 产生用于当前流中的元素的包装器对象流
+     */
+    Stream<Integer> integers = IntStream.range(0,100).boxed();
+    IntStream is5 = integers.mapToInt(Integer::intValue);
+    show("is5",is5);
+
+}
+```
+
+------
+
+**API：**
+
+java.util.stream.IntStream（https://www.runoob.com/manual/jdk11api/java.base/java/util/stream/IntStream.html）
+
+java.util.stream.DoubleStream（https://www.runoob.com/manual/jdk11api/java.base/java/util/stream/DoubleStream.html）
+
+java.util.stream.LongStream（https://www.runoob.com/manual/jdk11api/java.base/java/util/stream/LongStream.html）
+
+------
+
+# 14、并行流
+
+不要指望通过将所有的流都转换为并行流就能够加速操作，要牢记下面几条：
+
+- 并行化会导致大量的开销，只有面对非常大的数据集才划算。
+- 只有在底层的数据源可以被有效地分割为多个部分时，将流并行化才有意义。
+- 并行流使用的线程池可能会因诸如文件I/O或网络访问这样的操作被阻塞而饿死。
+
+只有面对海量的内存数据和运算密集处理，并行流才会工作最佳。
+
+------
+
+**注释1：**在Java9之前，对Files.lines方法返回的流进行并行化是没有意义的。因为数据是不可分割的，所以我们只能在读取文件的后半部分之前读取前半部分。现在，该方法使用的是内存映射文件，因此可以有效地进行分割。如果想要处理一个大型文件的各个行，并行化这个流可能会提高性能。
+
+**注释2：**默认情况下，并行流使用的是ForkJoinPool.commonPool返回的全局fork-join池。只有在操作不会阻塞并且我们不会将这个池与其他任务共享的情况下，这种方式才不会有什么问题。有一种解决方法是使用另一个不同的池，即把操作放置到定制的池的submit方法中：
+
+```java
+ForkJoinPool customPool = ...;
+result = customPool.submit(()->stream.parallel().map(...).collect(...)).get();
+```
+
+或者，使用异步方式：
+
+```java
+CompletableFuture.supplyAsync(()->stream.parallel().map(...).collect(...),customPool.thenAccept(result->...));
+```
+
+**注释3：**如果想要并行化基于随机数的流计算，那么请不要以从Random.ints、Random.longs或Random.doubles方法中获得的流为起点，因为这些流不可分割。应该使用SplittableRandom类的ints、longs、doubles。
+
+------
+
+```java
+public static void main(String[] args) throws IOException {
+
+    String contents = new String(Files.readAllBytes(Paths.get("D:/Backup/桌面/cities.txt")), StandardCharsets.UTF_8);
+    List<String> wordList = Arrays.asList(contents.split(","));
+    int[] shortWords = new int[5];
+    /**
+     * default Stream<E> parallelStream()
+     * 用当前集合中的元素产生一个并行流
+     */
+    wordList.parallelStream().forEach(s -> {
+        if (s.length()<5){
+            shortWords[s.length()]++;
+        }
+    });
+    System.out.println(Arrays.toString(shortWords));
+
+    //再试一次--结果可能会有所不同（也可能是错误的）
+    Arrays.fill(shortWords,0);
+    wordList.parallelStream().forEach(s -> {
+        if (s.length()<5){
+            shortWords[s.length()]++;
+        }
+    });
+    System.out.println(Arrays.toString(shortWords));
+
+    //补救措施：分组和计数
+    Map<Integer,Long> shortWordsCounts = wordList.parallelStream().filter(s -> s.length()<5).collect(Collectors.groupingBy(String::length,Collectors.counting()));
+    System.out.println(shortWordsCounts);
+
+    //DownStream order not deterministic
+    Map<Integer,List<String>> result = wordList.parallelStream().collect(Collectors.groupingBy(String::length));
+    System.out.println(result.get(4));
+
+    result = wordList.parallelStream().collect(Collectors.groupingByConcurrent(String::length));
+    System.out.println(result.get(4));
+
+    Map<Integer,Long> wordCounts = wordList.parallelStream().collect(Collectors.groupingByConcurrent(String::length,Collectors.counting()));
+    System.out.println(wordCounts);
+
+}
+```
+
+运行结果：
+
+![d1VIA0.png](https://s1.ax1x.com/2020/08/19/d1VIA0.png)
+
+```java
+S parallel();
+//产生一个与当前流中元素相同的并行流。
+S unordered();
+//产生一个与当前流中元素相同的无序流。
+```
